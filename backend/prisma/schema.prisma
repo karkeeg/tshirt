@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DesignStatus {
+  DRAFT
+  ORDERED
+}
+
+enum Side {
+  FRONT
+  BACK
+}
+
+enum LayerType {
+  IMAGE
+  TEXT
+}
+
+enum Size {
+  S
+  M
+  L
+  XL
+  XXL
+}
+
+enum OrderStatus {
+  PLACED
+}
+
+enum ProductionStatus {
+  PENDING_PRINT
+  PRINTED
+  SHIPPED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  designs Design[]
+  orders  Order[]
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  basePrice Decimal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  variants   ProductColor[]
+  designs    Design[]
+  orderItems OrderItem[]
+}
+
+model ProductColor {
+  id            String  @id @default(cuid())
+  productId     String
+  product       Product @relation(fields: [productId], references: [id])
+  colorName     String
+  hexCode       String
+  frontImageUrl String
+  backImageUrl  String
+
+  designs    Design[]
+  orderItems OrderItem[]
+
+  @@unique([productId, colorName])
+}
+
+model Design {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  productId String
+  product   Product       @relation(fields: [productId], references: [id])
+  colorId   String
+  color     ProductColor  @relation(fields: [colorId], references: [id])
+  status    DesignStatus  @default(DRAFT)
+  layers    DesignLayer[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([userId])
+}
+
+model DesignLayer {
+  id         String    @id @default(cuid())
+  designId   String
+  design     Design    @relation(fields: [designId], references: [id], onDelete: Cascade)
+  side       Side
+  type       LayerType
+  imageUrl   String?
+  text       String?
+  fontFamily String?
+  fontSize   Int?
+  color      String?
+  textAlign  String?   @default("center")
+  x          Float
+  y          Float
+  width      Float
+  height     Float
+  rotation   Float
+  zIndex     Int
+
+  @@index([designId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  status          OrderStatus @default(PLACED)
+  shippingName    String
+  shippingPhone   String
+  shippingAddress String
+  shippingCity    String
+  subtotal        Decimal
+  surcharge       Decimal
+  total           Decimal
+  createdAt       DateTime    @default(now())
+
+  items OrderItem[]
+
+  @@index([userId])
+}
+
+model OrderItem {
+  id               String           @id @default(cuid())
+  orderId          String
+  order            Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  designId         String
+  design           Design           @relation(fields: [designId], references: [id])
+  productId        String
+  product          Product          @relation(fields: [productId], references: [id])
+  colorId          String
+  color            ProductColor     @relation(fields: [colorId], references: [id])
+  size             Size
+  unitPrice        Decimal
+  surcharge        Decimal
+  productionStatus ProductionStatus @default(PENDING_PRINT)
+
+  @@index([orderId])
+  @@index([designId])
+}
